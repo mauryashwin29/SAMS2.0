@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SMART ATTENDANCE MANAGEMENT SYSTEM</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: linear-gradient(135deg, #dbeafe, #f0f9ff);
+    text-align: center;
+}
+
+.box {
+    background: white;
+    padding: 20px;
+    width: 600px;
+    margin: 40px auto;
+    border-radius: 12px;
+    box-shadow: 0 0 15px gray;
+    border: 1px solid #c7d2fe;
+}
+
+.title-bar {
+    background: linear-gradient(90deg, #2563eb, #1e40af);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+input, button, select {
+    padding: 10px;
+    margin: 6px;
+    width: 90%;
+}
+
+.btn-group button { width: 45%; }
+
+.table-box {
+    border: 2px solid black;
+    padding: 10px;
+    margin-top: 15px;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+thead tr {
+    background-color: #1f3c88;
+    color: white;
+}
+
+th, td {
+    border: 1px solid black;
+    padding: 8px;
+}
+
+.present { background: green; color: white; }
+.absent { background: red; color: white; }
+
+.status-present { color: green; font-weight: bold; }
+.status-absent { color: red; font-weight: bold; }
+
+.summary {
+    margin-top: 10px;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+<h2 class="title-bar">SMART ATTENDANCE MANAGEMENT SYSTEM</h2>
+
+<select id="daySelect" onchange="loadDay()"></select>
+<p id="datetime"></p>
+
+<input type="number" id="rollInput" placeholder="ENTER ROLL NUMBER">
+<input type="text" id="nameInput" placeholder="ENTER STUDENT NAME">
+
+<div class="btn-group">
+    <button class="present" onclick="mark('Present')">PRESENT</button>
+    <button class="absent" onclick="mark('Absent')">ABSENT</button>
+</div>
+
+<div class="summary">
+PRESENT: <span id="presentCount">0</span> |
+ABSENT: <span id="absentCount">0</span>
+</div>
+
+<button onclick="updatePercentage()">ATTENDANCE PERCENTAGE</button>
+<button onclick="monthlyReport()">MONTHLY REPORT</button>
+<button onclick="exportData()">EXPORT ATTENDANCE</button>
+
+<div class="table-box">
+<table>
+<thead>
+<tr>
+    <th>SR. NO.</th>
+    <th>ROLL NO.</th>
+    <th>NAME</th>
+    <th>STATUS</th>
+</tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+</div>
+
+<div id="resultBox" class="summary"></div>
+</div>
+
+<script>
+let currentDay = "", count = 1, present = 0, absent = 0;
+
+function updateTime(){
+    let now = new Date();
+    document.getElementById("datetime").innerText =
+        "DATE: " + now.toLocaleDateString() + " | TIME: " + now.toLocaleTimeString();
+}
+setInterval(updateTime, 1000);
+
+function initDays(){
+    let today = new Date().toLocaleDateString();
+    let days = JSON.parse(localStorage.getItem("days")) || [];
+
+    if(!days.includes(today)){
+        days.push(today);
+        localStorage.setItem("days", JSON.stringify(days));
+    }
+
+    let s = document.getElementById("daySelect");
+    s.innerHTML = "";
+
+    days.forEach(d => {
+        let o = document.createElement("option");
+        o.value = d;
+        o.innerText = d;
+        s.appendChild(o);
+    });
+
+    s.value = today;
+    loadDay();
+}
+
+function saveDay(){
+    localStorage.setItem(currentDay + "_table", list.innerHTML);
+    localStorage.setItem(currentDay + "_count", count);
+    localStorage.setItem(currentDay + "_present", present);
+    localStorage.setItem(currentDay + "_absent", absent);
+}
+
+function loadDay(){
+    currentDay = daySelect.value;
+
+    list.innerHTML = localStorage.getItem(currentDay + "_table") || "";
+    count = Number(localStorage.getItem(currentDay + "_count")) || 1;
+    present = Number(localStorage.getItem(currentDay + "_present")) || 0;
+    absent = Number(localStorage.getItem(currentDay + "_absent")) || 0;
+
+    presentCount.innerText = present;
+    absentCount.innerText = absent;
+    updatePercentage();
+}
+
+function mark(status){
+    let roll = rollInput.value;
+    let name = nameInput.value;
+
+    if(!roll || !name){
+        alert("PLEASE ENTER ROLL NUMBER AND NAME");
+        return;
+    }
+
+    let row = list.insertRow();
+    row.insertCell(0).innerText = count;
+    row.insertCell(1).innerText = roll;
+    row.insertCell(2).innerText = name;
+
+    let s = row.insertCell(3);
+    s.innerText = status;
+    s.className = (status === "Present") ? "status-present" : "status-absent";
+
+    status === "Present" ? present++ : absent++;
+
+    presentCount.innerText = present;
+    absentCount.innerText = absent;
+
+    count++;
+    updatePercentage();
+    saveDay();
+
+    rollInput.value = "";
+    nameInput.value = "";
+}
+
+function updatePercentage(){
+    let total = present + absent;
+    let percent = total ? ((present / total) * 100).toFixed(2) : 0;
+    resultBox.innerHTML = "ATTENDANCE PERCENTAGE: " + percent + "%";
+}
+
+function monthlyReport(){
+    let days = JSON.parse(localStorage.getItem("days")) || [];
+    let totalP = 0, totalA = 0;
+
+    days.forEach(d => {
+        totalP += Number(localStorage.getItem(d + "_present")) || 0;
+        totalA += Number(localStorage.getItem(d + "_absent")) || 0;
+    });
+
+    let total = totalP + totalA;
+    let percent = total ? ((totalP / total) * 100).toFixed(2) : 0;
+
+    resultBox.innerHTML =
+        "MONTHLY REPORT<br>PRESENT: " + totalP +
+        " | ABSENT: " + totalA +
+        " | PERCENTAGE: " + percent + "%";
+}
+
+function exportData(){
+    let text = "ATTENDANCE RECORD - " + currentDay + "\n\n";
+    document.querySelectorAll("tbody tr").forEach(r => {
+        let c = r.querySelectorAll("td");
+        text += c[0].innerText + " | " + c[1].innerText + " | " + c[2].innerText + " | " + c[3].innerText + "\n";
+    });
+
+    let file = new Blob([text], {type:"text/plain"});
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(file);
+    a.download = "attendance_" + currentDay.replace(/\//g, "-") + ".txt";
+    a.click();
+}
+
+initDays();
+</script>
+
+</body>
+</html>
